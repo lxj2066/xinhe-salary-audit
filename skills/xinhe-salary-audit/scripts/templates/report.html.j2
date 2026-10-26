@@ -142,6 +142,11 @@
     <tr><th>绿区阈值</th><td>≤ {{ '%.0f%%'|format(findings.thresholds.green*100) }}</td></tr>
     <tr><th>黄区阈值</th><td>≤ {{ '%.0f%%'|format(findings.thresholds.yellow*100) }}</td></tr>
     <tr><th>资料覆盖</th><td>勾稽 {{ '%.0f%%'|format(findings.aggregate.coverage*100) }} ｜ 完整五字段 {{ '%.0f%%'|format(findings.aggregate.full_coverage*100) }}</td></tr>
+    <tr><th>年度个税粗估</th><td>
+      {% if findings.tax_check and findings.tax_check.estimate %}
+        估算 {{ '%.0f'|format(findings.tax_check.estimate.tax) }} 元（{{ findings.tax_check.estimate.band }} 档）｜上报 {{ '%.0f'|format(findings.tax_check.reported or 0) }} 元｜仅量级核对，未计专项附加扣除
+      {% else %}资料不足{% endif %}
+    </td></tr>
   </table>
 </section>
 

@@ -109,6 +109,32 @@ for m in changed["months"][:6]:
 rc = crosscheck.run(normalize.normalize(changed))
 check("hf.change_point", bool(rc["rates"]["hf_segments"]), rc["rates"])
 
+# 退休返聘：不缴社保公积金，只核对个税
+ret = json.loads(json.dumps(case_raw))
+ret["months"] = [{
+    "month": "2026-01", "gross_income": 20000, "net_pay": 17000, "tax_paid": 3000,
+    "employment_type": "rehired_retiree"
+}]
+rr = crosscheck.run(normalize.normalize(ret))
+ret_month = next(m for m in rr["months"] if m["month"] == "2026-01")
+check("retiree.green", ret_month["status"] == "green", ret_month)
+check("retiree.note", any(d["code"] == "rehired_retiree" for d in ret_month["diagnostics"]))
+
+# 年终奖临界点
+bon = json.loads(json.dumps(case_raw))
+bon["months"][0]["bonus"] = 36000
+rb2 = crosscheck.run(normalize.normalize(bon))
+check("bonus.threshold", rb2["months"][0].get("bonus", {}).get("near_threshold") is True, rb2["months"][0].get("bonus"))
+
+# 劳务报酬月份判 partial
+lab = json.loads(json.dumps(case_raw))
+lab["months"][0]["income_type"] = "labor"
+rl = crosscheck.run(normalize.normalize(lab))
+check("labor.partial", rl["months"][0]["status"] == "partial", rl["months"][0]["status"])
+
+# 年度个税粗估存在
+check("tax.annual_check", rc.get("tax_check") is not None, rc.get("tax_check"))
+
 print()
 if fails:
     print("FAILED:", fails)

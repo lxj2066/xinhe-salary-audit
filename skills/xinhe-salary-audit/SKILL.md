@@ -2,10 +2,10 @@
 name: xinhe-salary-audit
 display_name: "薪核"
 display_name_en: "XinHe Salary Cross-Check"
-description: "凭证驱动的薪酬交叉核验：先查图片篡改风险，再抽取个税/银行/社保/公积金数据，逐月勾稽并标出偏差，输出带覆盖率与置信度的 HTML 薪酬报告。支持增量更新与报告版本。触发：核薪资、验流水、工资对不上、薪酬报告。不触发：代发工资、报税申报、劳动仲裁取证。"
+description: "凭证驱动的薪酬交叉核验：先查图片篡改风险，再抽取个税/银行/社保/公积金数据，逐月勾稽并标出偏差，含年终奖临界点与返聘口径，输出带覆盖率与置信度的 HTML 薪酬报告。触发：核薪资、验流水、工资对不上、薪酬报告。不触发：代发工资、报税申报、劳动仲裁取证。"
 description_zh: "先验图、再取数、后勾稽：逐月核对个税/银行/社保/公积金，偏差分级，报告带版本与溯源。"
 description_en: "Evidence-first salary cross-check: screens image manipulation risk, extracts tax/bank/social-insurance/housing-fund figures, reconciles them month by month, grades deviations, and produces a versioned HTML report with coverage and confidence."
-version: 1.0.0
+version: 1.1.0
 author: "李献杰 Lyon"
 category: utility
 allowed-tools: Read, Write, Bash, PowerShell
@@ -76,6 +76,21 @@ COLLECTING → CONFIRMING → PROCESSING → REVIEW → REPORTING
 
 分级：绿 ≤10%，黄 ≤20%，红 >20%；缺个税 → `partial`，不判红。
 
+### 中国口径要点（硬规则）
+
+| 主题 | 规则 |
+|---|---|
+| **累计预扣** | 月度个税波动是制度效应，不用“各月均值”反推；年度口径单独粗估 |
+| **年终奖** | 6 个临界点（3.6/14.4/30/42/66/96 万），±2% 提示；一年只允许一次单独计税；1 月发放按新年度归属 |
+| **社保基数** | 有上下限，7 月调基；`si_base_bounds` 由调用方传入，不写死 |
+| **公积金** | 比例 5%–12% 由公司定，可年中变更；自动求解并检测变更点 |
+| **退休返聘** | `employment_type=rehired_retiree`：不缴社保公积金，只核个税 |
+| **劳务报酬** | `income_type=labor`：预扣逻辑不同，不参与工资勾稽，判 `partial` |
+| **专项附加扣除** | 截图不可见，只作差额的第一解释项，不作计算项 |
+| **外籍人士** | 本工具不覆盖 |
+
+详细参数与来源见 @references/china-policy.md。
+
 ### 第 6 步的闸门
 
 先出**可修改的 Markdown / 表格**，用户改完再出报告。
@@ -122,6 +137,7 @@ COLLECTING → CONFIRMING → PROCESSING → REVIEW → REPORTING
 |---|---|
 | 输入 JSON 字段与来源定义 | @references/data-schema.md |
 | 勾稽公式、阈值、诊断码 | @references/crosscheck-rules.md |
+| 中国个税/年终奖/社保公积金参数 | @references/china-policy.md |
 | OCR 安装、缓存、验图信号与局限 | @references/ocr-and-forgery.md |
 | 同类项目与改进点 | @references/benchmarks.md |
 | 计算内核 | `scripts/crosscheck.py` |

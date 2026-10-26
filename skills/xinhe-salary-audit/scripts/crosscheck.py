@@ -59,11 +59,15 @@ def identity_check(case):
 
 def analyze_month(rec, ctx):
     f = rec["fields"]
+    emp = rec.get("employment_type") or "standard"
+    income_type = rec.get("income_type") or "salary"
     gross, net = _v(f["gross_income"]), _v(f["net_pay"])
     si, hf, tax = _v(f["si_personal"]), _v(f["hf_personal"]), _v(f["tax_paid"])
     month = rec["month"]
     out = {
         "month": month,
+        "employment_type": emp,
+        "income_type": income_type,
         "gross": gross, "net": net, "si": si, "hf": hf, "tax": tax,
         "status": "insufficient",
         "deviation": None, "deviation_pct": None,
@@ -79,7 +83,17 @@ def analyze_month(rec, ctx):
         })
         return out
 
-    expected = sum(x for x in (si, hf, tax) if x is not None)
+    if emp == "rehired_retiree":
+        # 退休返聘通常不缴社保/公积金，只核对个税
+        expected = tax if tax is not None else 0
+        out["diagnostics"].append({
+            "code": "rehired_retiree",
+            "label": "退休返聘口径",
+            "detail": "按仅扣个税处理，社保/公积金不计入应扣合计。",
+            "action": "若实际仍在缴社保/公积金，请把 employment_type 改为 standard。",
+        })
+    else:
+        expected = sum(x for x in (si, hf, tax) if x is not None)
     actual = gross - net
     residual = actual - expected
     base = expected if expected > 0 else max(abs(actual), 1.0)
@@ -146,7 +160,7 @@ def analyze_month(rec, ctx):
             "code": "deduction_shortfall",
             "label": "应发与实发的差额大于已知扣款",
             "detail": f"多扣了约 {residual:.0f} 元",
-            "action": "检查是否有未提供的扣款：补充公积金、企业年金、借款、个税补缴。",
+            "action": "优先用专项附加扣除（子女教育、房贷/租金、赡养老人、个人养老金等）解释——截图通常看不到；其次查补充公积金、企业年金、借款、个税补缴。",
         })
     elif residual < -ctx["tolerance"]:
         out["diagnostics"].append({
@@ -168,7 +182,8 @@ def analyze_month(rec, ctx):
                     "code": "si_base_shift",
                     "label": "社保基数疑似变化",
                     "detail": f"本月反推基数 {implied:.0f}，与常态 {ctx['si_base_median']:.0f} 相差 {shift*100:.0f}%",
-                    "action": "确认是否调基（常见于 1 月/7 月）或存在补缴。",
+                    "action": ("1 月/7 月是常见调基月，属结构性变化；确认当年当地上下限即可。"
+                               if month[5:] in ("01", "07") else "确认是否调基（常见于 1 月/7 月）或存在补缴。"),
                 })
                 if grade == "green":
                     grade = "yellow"
@@ -220,7 +235,45 @@ def analyze_month(rec, ctx):
                 "action": "该区间只用于理解差额，不作为判级依据；补个税截图可精确核验。",
             })
 
-    out["status"] = "partial" if not has_tax else grade
+    # 全年一次性奖金：临界点扫描与跨年归属
+    bonus = _v(f.get("bonus"))
+    explicit = bonus is not None
+    if bonus is None and ctx["median_gross"] and gross > ctx["median_gross"] * 1.25:
+        bonus = gross - ctx["median_gross"]
+    if bonus and bonus > 0:
+        scan = tax_mod.bonus_scan(bonus)
+        out["bonus"] = dict(scan, explicit=explicit)
+        if scan["near_threshold"]:
+            out["tags"].append("bonus_threshold")
+            out["diagnostics"].append({
+                "code": "bonus_threshold",
+                "label": "年终奖位于税率跳档临界点",
+                "detail": (f"奖金 {bonus:.0f} 距 {scan['nearest_threshold']} 仅 {scan['distance_pct']*100:.1f}%；"
+                           f"多发 1 元税额约增加 {scan['jump']:.0f} 元"),
+                "action": "确认是否为薪酬结构设计，或存在拆分/递延发放；这是解释项，不是造假结论。",
+            })
+        if month[5:] == "01" and ctx.get("calendar_year"):
+            out["tags"].append("cross_year_bonus")
+            out["diagnostics"].append({
+                "code": "cross_year_bonus",
+                "label": "奖金可能跨年归属",
+                "detail": "1 月发放的奖金通常计入发放年度，不属于上一个纳税年度。",
+                "action": "报告已区分“个税年度口径”与“现金流入口径”，请确认归属年度。",
+            })
+
+    if income_type == "labor":
+        out["status"] = "partial"
+        out["tags"].append("labor_income")
+        out["diagnostics"].append({
+            "code": "labor_income",
+            "label": "劳务报酬月份",
+            "detail": "劳务报酬按 20%–40% 预扣，逻辑与工资薪金不同。",
+            "action": "该月不参与工资勾稽；如需核验，请单独提供劳务报酬发票或结算单。",
+        })
+    elif emp == "rehired_retiree" and tax is None:
+        out["status"] = "partial"
+    else:
+        out["status"] = "partial" if not has_tax else grade
     return out
 
 
@@ -246,6 +299,7 @@ def run(case, thresholds=None):
         "si_rate": si_rate, "hf_rates": hf_rates,
         "si_bounds": assumptions.get("si_base_bounds"),
         "hf_bounds": assumptions.get("hf_base_bounds"),
+        "calendar_year": str(case.get("window", {}).get("start", ""))[:4] == str(case.get("window", {}).get("end", ""))[:4],
         "median_gross": median_gross,
         "si_base_median": statistics.median(si_bases) if si_bases else None,
     }
@@ -310,6 +364,25 @@ def run(case, thresholds=None):
     def total(key):
         return round(sum(r[key] for r in rows if r.get(key) is not None), 2)
 
+    # 年度口径个税粗估（只做量级核对）
+    gross_sum = sum(g for g in grosses if g)
+    si_sum = sum(_v(m["fields"]["si_personal"]) or 0 for m in months)
+    hf_sum = sum(_v(m["fields"]["hf_personal"]) or 0 for m in months)
+    tax_sum = sum(_v(m["fields"]["tax_paid"]) or 0 for m in months)
+    tax_check = tax_mod.annual_check(gross_sum, si_sum, hf_sum, tax_sum)
+
+    # 一年只能有一次单独计税的年终奖
+    bonus_months = [r["month"] for r in rows if r.get("bonus")]
+    if len(bonus_months) > 1:
+        first = next(r for r in rows if r["month"] == bonus_months[0])
+        first["diagnostics"].append({
+            "code": "multiple_bonus",
+            "label": "同一年出现多笔疑似年终奖",
+            "detail": "年内单独计税只允许一次，其余应并入综合所得。",
+            "action": "确认各笔奖金的归属年度与计税方式，不要自动都按单独计税处理。",
+        })
+        first["tags"].append("multiple_bonus")
+
     counts = {s: 0 for s in ("green", "yellow", "red", "partial", "insufficient")}
     for r in rows:
         counts[r["status"]] = counts.get(r["status"], 0) + 1
@@ -352,6 +425,8 @@ def run(case, thresholds=None):
             "counts": counts,
         },
         "conclusion": conclusion,
+        "tax_check": tax_check,
+        "bonus_months": bonus_months,
         "blocking": identity["status"] == "conflict",
     }
 

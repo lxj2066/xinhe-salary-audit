@@ -19,6 +19,7 @@ FIELD_DEFS = {
     "si_personal":  {"label": "社保个人扣款", "caliber": "deduction", "required": False},
     "hf_personal":  {"label": "公积金个人缴存", "caliber": "deduction", "required": False},
     "tax_paid":     {"label": "个税实缴",     "caliber": "tax",   "required": False},
+    "bonus":        {"label": "全年一次性奖金", "caliber": "bonus", "required": False},
     "si_base":      {"label": "社保基数",     "caliber": "base",  "required": False},
     "hf_base":      {"label": "公积金基数",   "caliber": "base",  "required": False},
 }
@@ -91,7 +92,12 @@ def normalize(case: dict) -> dict:
         fields = {}
         for fname in FIELD_DEFS:
             fields[fname] = _field(src.get(fname), sources.get(fname))
-        months.append({"month": key, "fields": fields})
+        months.append({
+            "month": key,
+            "employment_type": src.get("employment_type") or "standard",
+            "income_type": src.get("income_type") or "salary",
+            "fields": fields,
+        })
 
     return {
         "schema_version": "1.0",

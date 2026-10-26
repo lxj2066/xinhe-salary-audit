@@ -1,8 +1,8 @@
 {
   "name": "xinhe-salary-audit-agent",
   "expertType": "agent",
-  "version": "1.0.0",
-  "description": "Evidence-first salary cross-check: screens images for manipulation risk, extracts tax/bank/social-insurance/housing-fund figures, reconciles them month by month, grades deviations, and produces a versioned HTML report with coverage and confidence.",
+  "version": "1.1.0",
+  "description": "Evidence-first salary cross-check for China: screens images for manipulation risk, extracts tax/bank/social-insurance/housing-fund figures, reconciles month by month, flags year-end bonus tax thresholds and rehired-retiree cases, and produces a versioned HTML report with coverage and confidence.",
   "author": {
     "name": "李献杰 Lyon"
   },
