@@ -1,0 +1,31 @@
+{
+  "case_id": "case_zhangsan_2025_07_2026_06",
+  "person": { "name": "张三", "city": "杭州" },
+  "window": { "start": "2025-07", "end": "2026-06" },
+  "assumptions": {
+    "monthly_salary_caliber": "gross_fixed",
+    "si_personal_rate": 0.105,
+    "hf_rate_candidates": [0.05, 0.07, 0.12],
+    "rounding_tolerance": 1.0
+  },
+  "identity_sources": [
+    { "source": "tax", "name": "张三" },
+    { "source": "bank", "name": "张三" }
+  ],
+  "months": [
+    { "month": "2025-07", "gross_income": 30000, "net_pay": 20750, "si_personal": 3150, "hf_personal": 3600, "tax_paid": 2500,
+      "sources": { "gross_income": { "type": "ocr", "file": "tax_2025-07.png", "confidence": 0.93 }, "net_pay": { "type": "pdf_table", "file": "bank_2025-07.pdf", "confidence": 0.95 } } },
+    { "month": "2025-08", "gross_income": 30000, "net_pay": 20750, "si_personal": 3150, "hf_personal": 3600, "tax_paid": 2500 },
+    { "month": "2025-09", "gross_income": 30000, "net_pay": 20750, "si_personal": 3150, "hf_personal": 3600 },
+    { "month": "2025-10", "gross_income": 30000, "net_pay": 20750, "si_personal": 3150, "hf_personal": 3600, "tax_paid": 2500 },
+    { "month": "2025-11", "gross_income": 30000, "net_pay": 20250, "si_personal": 3150, "hf_personal": 3600, "tax_paid": 2500 },
+    { "month": "2025-12", "gross_income": 45000, "net_pay": 32250, "si_personal": 3150, "hf_personal": 3600, "tax_paid": 6000,
+      "sources": { "gross_income": { "type": "oral", "confidence": 0.55 } } },
+    { "month": "2026-01", "gross_income": 30000, "net_pay": 20750, "si_personal": 3150, "hf_personal": 3600, "tax_paid": 2500 },
+    { "month": "2026-02", "gross_income": 30000, "net_pay": 18750, "si_personal": 3150, "hf_personal": 3600, "tax_paid": 2500 },
+    { "month": "2026-03", "gross_income": 30000, "net_pay": 20750, "si_personal": 3150, "hf_personal": 3600, "tax_paid": 2500 },
+    { "month": "2026-04", "gross_income": 30000, "net_pay": 20750, "si_personal": 3150, "hf_personal": 3600, "tax_paid": 2500 },
+    { "month": "2026-05", "gross_income": 30000, "net_pay": 21900, "si_personal": 2000, "hf_personal": 3600, "tax_paid": 2500 },
+    { "month": "2026-06", "gross_income": 30000, "net_pay": 20750, "si_personal": 3150, "hf_personal": 3600, "tax_paid": 2500 }
+  ]
+}

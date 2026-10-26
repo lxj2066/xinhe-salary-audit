@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>薪核 · 工作台</title>
+<style>
+  :root{--bg:#0b1220;--panel:#121a2b;--line:#24314a;--text:#e6edf3;--muted:#8b98ab;
+        --green:#51cf66;--yellow:#ffa94d;--red:#ff6b6b;--blue:#4dabf7;--purple:#c9a0ff;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 "Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+  .top{display:flex;align-items:center;gap:14px;padding:16px 24px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(11,18,32,.95);backdrop-filter:blur(6px);z-index:5}
+  .brand{font-size:18px;font-weight:700}
+  .brand small{color:var(--muted);font-weight:400;margin-left:8px;font-size:12px}
+  .badge{padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700;color:#0b1220;background:var(--muted)}
+  .badge.COLLECTING{background:var(--blue)} .badge.REVIEW{background:var(--yellow)}
+  .badge.DONE{background:var(--green)}
+  .spacer{flex:1}
+  button{background:#1b2740;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:14px}
+  button:hover{border-color:var(--blue)}
+  button.primary{background:var(--blue);color:#06101f;border-color:var(--blue);font-weight:700}
+  button.ghost{background:transparent}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .wrap{max-width:1240px;margin:0 auto;padding:20px}
+  .grid{display:grid;grid-template-columns:340px 1fr;gap:18px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px}
+  h2{font-size:15px;margin:0 0 12px}
+  label{display:block;color:var(--muted);font-size:12px;margin:8px 0 4px}
+  input[type=text],input[type=month],textarea{width:100%;background:#0f1728;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:8px 10px;font:inherit}
+  .slots{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .slot{border:1px dashed var(--line);border-radius:10px;padding:12px;text-align:center;cursor:pointer;transition:.15s}
+  .slot:hover{border-color:var(--blue);background:#0f1728}
+  .slot b{display:block;font-size:14px}
+  .slot small{color:var(--muted);font-size:11px}
+  .slot input{display:none}
+  .files{display:flex;flex-direction:column;gap:8px}
+  .file{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;background:#0f1728;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .file .name{font-size:13px;word-break:break-all}
+  .file .meta{color:var(--muted);font-size:11px}
+  .risk-low{color:var(--green)} .risk-medium{color:var(--yellow)} .risk-high{color:var(--red)} .risk-unknown{color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left}
+  th{color:var(--muted);font-weight:600;white-space:nowrap}
+  td input{width:88px;background:#0f1728;border:1px solid var(--line);border-radius:6px;color:var(--text);padding:4px 6px;font:inherit}
+  .st{padding:1px 8px;border-radius:999px;font-size:11px;font-weight:700;color:#0b1220}
+  .st.green{background:var(--green)} .st.yellow{background:var(--yellow)} .st.red{background:var(--red)}
+  .st.partial{background:var(--purple)} .st.insufficient{background:var(--muted)}
+  .msg{color:var(--muted);font-size:13px;min-height:20px}
+  .err{color:var(--red)} .ok{color:var(--green)} .warn{color:var(--yellow)}
+  .cards{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}
+  .card{flex:1 1 120px;background:#0f1728;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .card .n{font-size:20px;font-weight:700}.card .l{color:var(--muted);font-size:11px}
+  .diag{border-left:3px solid var(--line);padding:6px 0 6px 10px;margin:6px 0;font-size:13px}
+  .diag.red{border-color:var(--red)} .diag.yellow{border-color:var(--yellow)} .diag.partial{border-color:var(--purple)}
+  .hint{color:var(--muted);font-size:12px}
+  a{color:var(--blue)}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand">薪核 <small>凭证驱动的薪酬交叉核验</small></div>
+  <span id="state" class="badge">未开始</span>
+  <div class="spacer"></div>
+  <button class="ghost" onclick="refresh()">刷新</button>
+  <button id="btnAnalyze" class="primary" onclick="analyze(false)" disabled>开始核验</button>
+  <button id="btnReport" onclick="makeReport()" disabled>生成报告</button>
+</div>
+
+<div class="wrap">
+  <div class="grid">
+    <div>
+      <section>
+        <h2>1 · 案件</h2>
+        <label>姓名</label><input id="pname" type="text" placeholder="张三">
+        <label>城市</label><input id="pcity" type="text" placeholder="杭州">
+        <div class="slots" style="margin-top:10px">
+          <div><label>开始月</label><input id="pstart" type="month" value="2025-07"></div>
+          <div><label>结束月</label><input id="pend" type="month" value="2026-06"></div>
+        </div>
+        <button style="margin-top:12px;width:100%" onclick="createCase()">创建 / 载入案件</button>
+        <div id="caseMsg" class="hint" style="margin-top:8px"></div>
+      </section>
+
+      <section>
+        <h2>2 · 资料</h2>
+        <div class="slots">
+          <label class="slot"><b>个税</b><small>截图 / PDF</small><input type="file" data-slot="tax" onchange="upload(this)"></label>
+          <label class="slot"><b>银行流水</b><small>截图 / PDF</small><input type="file" data-slot="bank" onchange="upload(this)"></label>
+          <label class="slot"><b>社保</b><small>截图</small><input type="file" data-slot="si" onchange="upload(this)"></label>
+          <label class="slot"><b>公积金</b><small>截图</small><input type="file" data-slot="hf" onchange="upload(this)"></label>
+        </div>
+        <label style="margin-top:12px">口述补充（不会自动入账，作为核对参考）</label>
+        <textarea id="oral" rows="3" placeholder="例：月薪税前 30000，社保按最低基数缴，公积金 12%"></textarea>
+        <div id="uploadMsg" class="hint" style="margin-top:8px"></div>
+      </section>
+
+      <section>
+        <h2>3 · OCR 状态</h2>
+        <div id="ocrMsg" class="hint">检测中…</div>
+        <div class="hint" style="margin-top:6px">未安装时不影响主流程：上传的文件会保留，可在右侧表格手动录入。</div>
+      </section>
+    </div>
+
+    <div>
+      <section>
+        <h2>材料清单</h2>
+        <div id="files" class="files"><div class="hint">还没有材料。</div></div>
+      </section>
+
+      <section>
+        <h2>核验结果</h2>
+        <div id="summary" class="hint">创建案件并上传资料后，点击「开始核验」。</div>
+        <div id="tableWrap"></div>
+        <div id="diagWrap"></div>
+        <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+          <button onclick="saveEdits()" id="btnSave" disabled>保存修改并重算</button>
+          <span id="editMsg" class="hint"></span>
+        </div>
+      </section>
+
+      <section>
+        <h2>报告版本</h2>
+        <div id="reports" class="hint">还没有报告。</div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+let CID = localStorage.getItem("xinhe_case") || "";
+let STATE = null;
+let FINDINGS = null;
+const FIELDS = ["gross_income","net_pay","si_personal","hf_personal","tax_paid"];
+
+function el(id){return document.getElementById(id)}
+function msg(id, text, cls){const e=el(id);e.textContent=text;e.className=(cls||"hint")}
+async function api(path, body){
+  const r = await fetch(path, {method: body?"POST":"GET", headers:{"Content-Type":"application/json"}, body: body?JSON.stringify(body):undefined});
+  return await r.json();
+}
+function num(v){return v===null||v===undefined||v===""?null:Number(v)}
+
+async function createCase(){
+  const body = {
+    case_id: CID || ("case_" + Date.now()),
+    person: {name: el("pname").value.trim(), city: el("pcity").value.trim()},
+    window: {start: el("pstart").value, end: el("pend").value}
+  };
+  const r = await api("/api/case", body);
+  if(!r.ok){msg("caseMsg", r.error||"创建失败","err");return}
+  CID = r.case_id; localStorage.setItem("xinhe_case", CID);
+  msg("caseMsg", "已载入：" + CID, "ok");
+  await refresh();
+}
+
+async function upload(input){
+  const file = input.files[0]; if(!file) return;
+  if(!CID){msg("uploadMsg","请先创建案件","err");input.value="";return}
+  msg("uploadMsg","上传并检测中："+file.name);
+  const buf = await file.arrayBuffer();
+  let bin=""; const bytes=new Uint8Array(buf);
+  const chunk=0x8000;
+  for(let i=0;i<bytes.length;i+=chunk){bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunk))}
+  const b64 = btoa(bin);
+  const r = await api("/api/upload", {case_id:CID, slot:input.dataset.slot, filename:file.name, data_b64:b64});
+  if(!r.ok){msg("uploadMsg", r.error||"上传失败","err");return}
+  msg("uploadMsg", (r.cached?"已存在，未重跑：":"已处理：") + file.name, r.cached?"warn":"ok");
+  await refresh();
+}
+
+async function refresh(){
+  if(!CID) return;
+  const r = await api("/api/state?case_id="+encodeURIComponent(CID));
+  if(!r.ok) return;
+  STATE = r.state; FINDINGS = r.findings;
+  el("state").textContent = {COLLECTING:"收集中",REVIEW:"待确认",DONE:"已出报告"}[r.state.state] || r.state.state;
+  el("state").className = "badge " + r.state.state;
+  renderFiles(r.uploads||[]);
+  renderReports(r.reports||[]);
+  el("btnAnalyze").disabled = (r.uploads||[]).length===0;
+  el("btnReport").disabled = !r.findings;
+  el("btnSave").disabled = !r.findings;
+  if(r.findings) renderFindings(r.findings);
+}
+
+function renderFiles(list){
+  const box = el("files");
+  if(!list.length){box.innerHTML='<div class="hint">还没有材料。</div>';return}
+  box.innerHTML = list.map(u=>{
+    const risk=(u.forgery||{}).risk||"unknown";
+    const sig=((u.forgery||{}).signals||[]).map(s=>s.detail).join("；")||"无";
+    const ocr=(u.ocr_status==="ok")?"已识别":"待手动录入";
+    return `<div class="file"><div><div class="name">${u.filename}</div>
+      <div class="meta">${u.slot} · ${ocr} · ${sig}</div></div>
+      <div class="risk-${risk}">风险 ${({low:"低",medium:"中",high:"高"}[risk]||"未知")}</div>
+      <div class="meta">${(u.parsed&&u.parsed.month)||"—"}</div></div>`;
+  }).join("");
+}
+
+function renderReports(list){
+  const box=el("reports");
+  if(!list||!list.length){box.innerHTML='<div class="hint">还没有报告。</div>';return}
+  box.innerHTML=list.map(n=>`<div><a href="/reports/${CID}/${n}" target="_blank">${n}</a></div>`).join("");
+}
+
+function badge(s){return `<span class="st ${s}">${({green:"通过",yellow:"需确认",red:"异常",partial:"部分",insufficient:"不足"}[s]||s)}</span>`}
+
+function renderFindings(f){
+  const a=f.aggregate;
+  el("summary").innerHTML = `<div class="cards">
+    <div class="card"><div class="n">${Math.round(a.annual_gross||0)}</div><div class="l">年度应发</div></div>
+    <div class="card"><div class="n">${Math.round(a.annual_net||0)}</div><div class="l">年度实发</div></div>
+    <div class="card"><div class="n">${Math.round(a.coverage*100)}%</div><div class="l">覆盖率</div></div>
+    <div class="card"><div class="n">${Math.round(a.confidence*100)}%</div><div class="l">置信度</div></div>
+    <div class="card"><div class="n">${a.counts.red||0}</div><div class="l">异常月</div></div>
+  </div>`;
+  const rows=f.months.map(m=>`<tr data-month="${m.month}">
+    <td>${m.month}</td>
+    ${FIELDS.map(k=>`<td><input data-f="${k}" value="${m[{gross_income:"gross",net_pay:"net",si_personal:"si",hf_personal:"hf",tax_paid:"tax"}[k]]??""}"></td>`).join("")}
+    <td>${badge(m.status)}</td><td>${m.deviation==null?"—":Math.round(m.deviation)}</td></tr>`).join("");
+  el("tableWrap").innerHTML = `<table><thead><tr><th>月份</th><th>应发</th><th>实发</th><th>社保</th><th>公积金</th><th>个税</th><th>状态</th><th>差额</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const diags=f.months.filter(m=>m.diagnostics&&m.diagnostics.length);
+  el("diagWrap").innerHTML = diags.length? diags.map(m=>`<div class="diag ${m.status}"><b>${m.month}</b> ${badge(m.status)}<br>${m.diagnostics.map(d=>`<b>${d.label}</b>：${d.detail} <span class="hint">→ ${d.action}</span>`).join("<br>")}</div>`).join("") : '<div class="hint">没有需要确认的诊断项。</div>';
+}
+
+async function analyze(force){
+  if(!CID) return;
+  msg("editMsg","核验中…");
+  const r = await api("/api/analyze", {case_id:CID, force:!!force});
+  if(!r.ok && r.blocked){
+    if(confirm(r.error + "\n\n仍然继续？")) return analyze(true);
+    msg("editMsg", r.error, "err"); return;
+  }
+  if(!r.ok){msg("editMsg", r.error||"核验失败","err");return}
+  msg("editMsg","核验完成","ok");
+  await refresh();
+}
+
+async function saveEdits(){
+  if(!CID) return;
+  const rows = document.querySelectorAll("#tableWrap tbody tr");
+  let n=0;
+  for(const tr of rows){
+    const month=tr.dataset.month;
+    for(const inp of tr.querySelectorAll("input")){
+      const v=num(inp.value);
+      if(v!==null){ await api("/api/manual", {case_id:CID, month, field:inp.dataset.f, value:v}); n++; }
+    }
+  }
+  msg("editMsg",`已保存 ${n} 个字段，重算中…`);
+  await analyze(false);
+}
+
+async function makeReport(){
+  if(!CID) return;
+  const r = await api("/api/report", {case_id:CID});
+  if(!r.ok){msg("editMsg", r.error||"生成失败","err");return}
+  msg("editMsg","已生成 v"+r.version,"ok");
+  await refresh();
+  window.open(r.url,"_blank");
+}
+
+(async function boot(){
+  el("ocrMsg").textContent = "上传图片后自动检测；若未安装 ppocr-lite，会标记为「待手动录入」。";
+  if(CID){ msg("caseMsg","已记住案件："+CID,"hint"); await refresh(); }
+})();
+</script>
+</body></html>

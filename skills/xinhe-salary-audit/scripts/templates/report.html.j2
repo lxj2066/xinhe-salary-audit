@@ -1,0 +1,166 @@
+{% macro status_badge(s) -%}
+<span class="badge {{ s }}">{{ {'green':'通过','yellow':'需确认','red':'异常','partial':'部分核验','insufficient':'资料不足'}[s] }}</span>
+{%- endmacro %}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>薪核 · 薪酬交叉核验报告 {{ case.case_id }}</title>
+<style>
+  :root{--bg:#0b1220;--panel:#121a2b;--line:#24314a;--text:#e6edf3;--muted:#8b98ab;
+        --green:#51cf66;--yellow:#ffa94d;--red:#ff6b6b;--blue:#4dabf7;--partial:#c9a0ff;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.65 "Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+  .wrap{max-width:1120px;margin:0 auto;padding:32px 20px 80px}
+  header{border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:22px}
+  .eyebrow{color:var(--muted);letter-spacing:.18em;font-size:12px}
+  h1{font-size:28px;margin:6px 0 4px}
+  .sub{color:var(--muted);font-size:13px}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:18px 0}
+  h2{font-size:18px;margin:0 0 14px}
+  h3{font-size:15px;margin:16px 0 8px;color:#c9d4e3}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;white-space:nowrap}
+  .cards{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
+  .card{flex:1 1 150px;border-radius:10px;padding:12px 14px;background:#0f1728;border:1px solid var(--line)}
+  .card .n{font-size:22px;font-weight:700}
+  .card .l{color:var(--muted);font-size:12px}
+  .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700;color:#0b1220}
+  .badge.green{background:var(--green)} .badge.yellow{background:var(--yellow)}
+  .badge.red{background:var(--red)} .badge.partial{background:var(--partial)}
+  .badge.insufficient{background:var(--muted)}
+  .risk-low{color:var(--green)} .risk-medium{color:var(--yellow)} .risk-high{color:var(--red)}
+  .diag{border-left:3px solid var(--line);padding:10px 0 10px 14px;margin:10px 0}
+  .diag.red{border-color:var(--red)} .diag.yellow{border-color:var(--yellow)}
+  .diag.partial{border-color:var(--partial)} .diag.green{border-color:var(--green)}
+  .diag .t{font-weight:600}
+  .diag .m{color:var(--muted);font-size:13px}
+  .note{color:var(--muted);font-size:13px}
+  .ok{color:var(--green)} .warn{color:var(--yellow)} .bad{color:var(--red)}
+  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:28px}
+  @media(max-width:680px){h1{font-size:23px}section{padding:16px}table{font-size:13px}}
+</style>
+</head>
+<body><div class="wrap">
+<header>
+  <div class="eyebrow">薪核 · 凭证驱动的薪酬交叉核验</div>
+  <h1>{{ case.person.get('name','未填写') }} · {{ case.window.start }} → {{ case.window.end }}</h1>
+  <div class="sub">案件 {{ case.case_id }} ｜ 报告版本 v{{ version }} ｜ 生成于 {{ generated_at }}</div>
+</header>
+
+<section>
+  <h2>结论</h2>
+  <p>
+    {% if findings.blocking %}
+      <span class="bad badge">阻塞</span> 身份信息不一致，核验暂停。
+    {% elif findings.aggregate.counts.red %}
+      <span class="bad badge">需处理</span> 有 {{ findings.aggregate.counts.red }} 个月份存在异常偏差。
+    {% elif findings.aggregate.counts.yellow or findings.aggregate.counts.partial %}
+      <span class="warn badge">需确认</span> 有 {{ findings.aggregate.counts.yellow + findings.aggregate.counts.partial }} 个月份需要人工确认。
+    {% else %}
+      <span class="ok badge">通过</span> 所有月份偏差在正常范围内。
+    {% endif %}
+  </p>
+  <div class="cards">
+    <div class="card"><div class="n">{{ '%.0f'|format(findings.aggregate.annual_gross or 0) }}</div><div class="l">年度应发（元）</div></div>
+    <div class="card"><div class="n">{{ '%.0f'|format(findings.aggregate.annual_net or 0) }}</div><div class="l">年度实发（元）</div></div>
+    <div class="card"><div class="n">{{ '%.0f'|format(findings.aggregate.avg_monthly_gross or 0) }}</div><div class="l">月均应发（元）</div></div>
+    <div class="card"><div class="n">{{ '%.0f'|format(findings.aggregate.coverage*100) }}%</div><div class="l">勾稽覆盖率</div></div>
+    <div class="card"><div class="n">{{ '%.0f'|format(findings.aggregate.confidence*100) }}%</div><div class="l">综合置信度</div></div>
+  </div>
+</section>
+
+<section>
+  <h2>凭证完整性</h2>
+  <p class="note">先验真伪，再取数字。以下为图片篡改风险筛查结果（提示性，不是鉴定意见）。</p>
+  {% if images %}
+  <table>
+    <thead><tr><th>文件</th><th>栏目</th><th>风险</th><th>信号</th><th>OCR</th></tr></thead>
+    <tbody>
+      {% for im in images %}
+      <tr>
+        <td>{{ im.filename }}</td>
+        <td>{{ im.slot }}</td>
+        <td class="risk-{{ im.forgery.risk }}">{{ {'low':'低','medium':'中','high':'高'}.get(im.forgery.risk, im.forgery.risk) }}</td>
+        <td class="note">{{ im.forgery.signals|map(attribute='detail')|join('；') if im.forgery.signals else '无' }}</td>
+        <td class="note">{{ {'ok':'已识别','manual':'待手动录入','failed':'识别失败'}.get(im.ocr_status, im.ocr_status) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="note">本次未上传图片，或使用结构化数据直接核验。</p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>逐月三口径对照</h2>
+  <table>
+    <thead><tr><th>月份</th><th>应发</th><th>实发</th><th>应扣合计</th><th>差额</th><th>偏差</th><th>状态</th><th>置信度</th></tr></thead>
+    <tbody>
+      {% for m in findings.months %}
+      <tr>
+        <td>{{ m.month }}</td>
+        <td>{{ '%.0f'|format(m.gross) if m.gross is not none else '—' }}</td>
+        <td>{{ '%.0f'|format(m.net) if m.net is not none else '—' }}</td>
+        <td>{{ '%.0f'|format(m.expected_deduction) if m.expected_deduction is not none else '—' }}</td>
+        <td>{{ '%.0f'|format(m.deviation) if m.deviation is not none else '—' }}</td>
+        <td>{{ '%.1f%%'|format(m.deviation_pct*100) if m.deviation_pct is not none else '—' }}</td>
+        <td>{{ status_badge(m.status) }}</td>
+        <td>{{ '%.0f%%'|format(m.confidence*100) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>诊断与待确认</h2>
+  {% set ns = namespace(items=0) %}
+  {% for m in findings.months %}
+    {% if m.diagnostics %}
+      {% set ns.items = ns.items + 1 %}
+      <div class="diag {{ m.status }}">
+        <div class="t">{{ m.month }} · {{ status_badge(m.status) }}</div>
+        {% for d in m.diagnostics %}
+          <div class="m"><b>{{ d.label }}</b>：{{ d.detail }}<br>建议：{{ d.action }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endfor %}
+  {% if ns.items == 0 %}<p class="note">没有需要确认的诊断项。</p>{% endif %}
+</section>
+
+<section>
+  <h2>假设与参数</h2>
+  <table>
+    <tr><th>口径</th><td>{{ case.assumptions.get('monthly_salary_caliber') }}</td></tr>
+    <tr><th>社保个人比例</th><td>{{ '%.1f%%'|format(findings.rates.si_personal*100) }}</td></tr>
+    <tr><th>公积金比例</th><td>{{ ('%.0f%%'|format(findings.rates.hf_selected*100)) if findings.rates.hf_selected else '未能唯一确定（多解）' }}</td></tr>
+    <tr><th>绿区阈值</th><td>≤ {{ '%.0f%%'|format(findings.thresholds.green*100) }}</td></tr>
+    <tr><th>黄区阈值</th><td>≤ {{ '%.0f%%'|format(findings.thresholds.yellow*100) }}</td></tr>
+    <tr><th>资料覆盖</th><td>勾稽 {{ '%.0f%%'|format(findings.aggregate.coverage*100) }} ｜ 完整五字段 {{ '%.0f%%'|format(findings.aggregate.full_coverage*100) }}</td></tr>
+  </table>
+</section>
+
+{% if changelog %}
+<section>
+  <h2>版本记录</h2>
+  <table>
+    <thead><tr><th>版本</th><th>时间</th><th>变更</th></tr></thead>
+    <tbody>
+      {% for c in changelog %}
+      <tr><td>v{{ c.version }}</td><td>{{ c.time }}</td><td>{{ c.note }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<footer>
+  <p>本报告由确定性计算层生成，表格数字不经过语言模型。图片风险为提示，不构成鉴定意见。</p>
+  <p>薪核 · xinhe-salary-audit v1.0.0 ｜ {{ generated_at }}</p>
+</footer>
+</div></body></html>
