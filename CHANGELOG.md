@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 1.1.1 — 2026-10-27
+
+- 修复平台上传校验：`defaultInitPrompt` 与 `quickPrompts[0]` 的中英文必须完全一致。
+- 同步修正 `github-project-mining-agent`、`decision-under-uncertainty-agent` 的同一问题。
+
 ## 1.1.0 — 2026-10-26
 
 - 新增中国口径模块 `references/china-policy.md`（政策核对到 2026-10，附来源）。

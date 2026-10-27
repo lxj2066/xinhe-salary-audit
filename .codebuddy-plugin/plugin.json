@@ -1,7 +1,7 @@
 {
   "name": "xinhe-salary-audit-agent",
   "expertType": "agent",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Evidence-first salary cross-check for China: screens images for manipulation risk, extracts tax/bank/social-insurance/housing-fund figures, reconciles month by month, flags year-end bonus tax thresholds and rehired-retiree cases, and produces a versioned HTML report with coverage and confidence.",
   "author": {
     "name": "李献杰 Lyon"
@@ -48,8 +48,8 @@
   ],
   "quickPrompts": [
     {
-      "en": "Verify this candidate's salary from these screenshots and flag anything that does not add up.",
-      "zh": "根据这些截图核一下候选人的薪资，把对不上的地方标出来。"
+      "en": "Here are a candidate's tax, bank and social-insurance screenshots. Verify the salary and tell me what does not add up.",
+      "zh": "这是候选人的个税、银行流水和社保截图，帮我核一下薪资，看看哪里对不上。"
     },
     {
       "en": "Check whether these payslip images look edited before using their numbers.",
